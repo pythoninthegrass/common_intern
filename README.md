@@ -28,6 +28,8 @@
 ## TODO
 * [Issues](https://github.com/pythoninthegrass/common_intern/issues)
 * Document fork changes
+* [Makefile](Makefile)
+  * Automate [Installation](#installation) section
 * Docker
 * CI/CD
   * ghcr
