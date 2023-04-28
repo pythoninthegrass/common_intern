@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "common-intern"
+version = "0.1.0"
+description = "A script to automatically search Glassdoor for job listings, aggregate every application URL, and apply to each job using pre-populated data. **All with one click!**"
+authors = ["pythoninthegrass <4097471+pythoninthegrass@users.noreply.github.com>"]
+license = "Unlicense"
+readme = "README.md"
+packages = [{include = "common_intern"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+beautifulsoup4 = "^4.12.2"
+selenium = "^4.9.0"
+playwright = "^1.32.1"
+requests = "^2.29.0"
+requests-cache = "^1.0.1"
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.12.0"
+pytest = "^7.3.1"
+pytest-asyncio = "^0.19.0"
+pytest-cov = "^4.0.0"
+pytest-datafiles = "^3.0.0"
+pytest-xdist = "^2.5.0"
+rich = "^13.3.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
