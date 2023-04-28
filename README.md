@@ -7,7 +7,7 @@
 
 ## Installation
 1. Install [ChromeDriver](https://sites.google.com/a/chromium.org/chromedriver/) (or an alternatie driver for your browser of choice):
-   * Run `brew cask install chromedriver`
+   * Run `brew install --cask chromedriver`
    * Confirm installation: `chromedriver --version`
    * Check location of ChromeDriver: `which chromedriver`
    * Wherever the `driver` is initialized in the code, insert the ChromeDriver location

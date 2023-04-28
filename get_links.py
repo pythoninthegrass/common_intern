@@ -1,28 +1,36 @@
-# selenium stup
+#!/usr/bin/env python3
+
+# import json
+import urllib.request
+import re
+import subprocess
+import time
+from bs4 import BeautifulSoup
+from decouple import config
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
+# from selenium.webdriver.common.keys import Keys
+# from selenium.webdriver.common.action_chains import ActionChains
 
-# to find links
-from bs4 import BeautifulSoup
-import json
-import urllib.request
-import re
-
-import time # to sleep
+# TODO: typer
+# prompt for preferences
+# position_title = input("Enter position title: ")
+# location = input("Enter location: ")
+position_title = config('POSITION_TITLE', default='Software Engineer')
+location = config('LOCATION', default='San Francisco, CA')
 
 # fill this in with your job preferences!
 PREFERENCES = {
-    "position_title": "Software Engineer",
-    "location": "San Francisco, CA"
+    "position_title": position_title,
+    "location": location
 }
 
-# helper method to give user time to log into glassdoor
+
 def login(driver):
+    """helper method to give user time to log into glassdoor"""
     driver.get('https://www.glassdoor.com/index.htm')
 
     # keep waiting for user to log-in until the URL changes to user page
@@ -33,9 +41,11 @@ def login(driver):
             break
     return True # return once this is complete
 
-# navigate to appropriate job listing page
-def go_to_listings(driver):
 
+def go_to_listings(driver):
+    """navigate to appropriate job listing page"""
+
+    # TODO: fix timeout exception (doesn't make it past login)
     # wait for the search bar to appear
     element = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, "//*[@id='scBar']"))
@@ -68,9 +78,11 @@ def go_to_listings(driver):
     except NoSuchElementException:
         return False
 
-# aggregate all url links in a set
+
 def aggregate_links(driver):
-    allLinks = [] # all hrefs that exist on the page
+    """aggregate all url links in a set"""
+
+    all_links = [] # all hrefs that exist on the page
 
     # wait for page to fully load
     element = WebDriverWait(driver, 20).until(
@@ -84,12 +96,12 @@ def aggregate_links(driver):
     soup = BeautifulSoup(page_source)
 
     # find all hrefs
-    allJobLinks = soup.findAll("a", {"class": "jobLink"})
-    allLinks = [jobLink['href'] for jobLink in allJobLinks]
-    allFixedLinks = []
+    all_job_links = soup.findAll("a", {"class": "job_link"})
+    all_links = [job_link['href'] for job_link in all_job_links]
+    all_fixed_links = []
 
     # clean up the job links by opening, modifying, and 'unraveling' the URL
-    for link in allLinks:
+    for link in all_links:
         # first, replace GD_JOB_AD with GD_JOB_VIEW
         # this will replace the Glassdoor hosted job page to the proper job page
         # hosted on most likely Greenhouse or Lever
@@ -104,50 +116,55 @@ def aggregate_links(driver):
         # then, open up each url and save the result url
         # because we got a 403 error when opening this normally, we have to establish the user agent
         user_agent = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7'
-        headers={'User-Agent':user_agent,}
-        request=urllib.request.Request(link,None,headers) #The assembled request
+        headers={'User-Agent': user_agent}
+        request=urllib.request.Request(link, None, headers) # The assembled request
 
         try:
             # the url is on glassdoor itself, but once it's opened, it redirects - so let's store that
             response = urllib.request.urlopen(request)
-            newLink = response.geturl()
+            new_link = response.geturl()
 
             # if the result url is from glassdoor, it's an 'easy apply' one and worth not saving
             # however, this logic can be changed if you want to keep those
-            if "glassdoor" not in newLink:
-                print(newLink)
+            if "glassdoor" not in new_link:
+                print(new_link)
                 print('\n')
-                allFixedLinks.append(newLink)
+                all_fixed_links.append(new_link)
         except Exception:
-            # horrible way to catch errors but this doesnt happen regualrly (just 302 HTTP error)
-            print(f'ERROR: failed for {link}')
-            print('\n')
+            # horrible way to catch errors but this doesnt happen regularly (just 302 HTTP error)
+            print(f"ERROR: failed for {link}\n")
 
     # convert to a set to eliminate duplicates
-    return set(allFixedLinks)
+    return set(all_fixed_links)
 
-# 'main' method to iterate through all pages and aggregate URLs
-def getURLs():
-    driver = webdriver.Chrome(executable_path='/usr/local/bin/chromedriver')
+
+def get_urls():
+    """'main' method to iterate through all pages and aggregate URLs"""
+    chrome_bin = subprocess.run(["which", "chromedriver"], stdout=subprocess.PIPE).stdout.decode('utf-8').strip()
+
+    driver = webdriver.Chrome(executable_path=chrome_bin)
+
     success = login(driver)
+
     if not success:
         # close the page if it gets stuck at some point - this logic can be improved
         driver.close()
 
     success = go_to_listings(driver)
+
     if not success:
         driver.close()
 
-    allLinks = set()
+    all_links = set()
     page = 1
     next_url = ''
     while page < 5: # pick an arbitrary number of pages so this doesn't run infinitely
-        print(f'\nNEXT PAGE #: {page}\n')
+        print(f"\nNEXT PAGE #: {page}\n")
 
         # on the first page, the URL is unique and doesn't have a field for the page number
         if page == 1:
             # aggregate links on first page
-            allLinks.update(aggregate_links(driver))
+            all_links.update(aggregate_links(driver))
 
             # find next page button and click it
             next_page = driver.find_element_by_xpath("//*[@id='FooterPageNav']/div/ul/li[3]/a")
@@ -165,11 +182,11 @@ def getURLs():
             time.sleep(1) # just to give things time
 
         # same patterns from page 2 onwards
-        if page >=2 :
+        if page >= 2 :
             # open page with new URL
             driver.get(next_url)
             # collect all the links
-            allLinks.update(aggregate_links(driver))
+            all_links.update(aggregate_links(driver))
             # run regex to get all reusable parts of URL
             m = re.search('(?P<url>[^;]*?)(?P<pagenum>.)(?P<html>.htm)', next_url)
             # increment page number for next time
@@ -178,7 +195,12 @@ def getURLs():
             next_url = f"{m.group('url')}{page}.htm"
 
     driver.close()
-    return allLinks
+    return all_links
 
-# for testing purpose
-# getURLs()
+
+def main():
+    get_urls()
+
+
+if __name__ == "__main__":
+    main()
