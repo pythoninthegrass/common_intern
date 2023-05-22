@@ -6,20 +6,30 @@
 > **📸YouTube Tutorial: [https://youtu.be/N_7d8vg_TQA](https://youtu.be/N_7d8vg_TQA)**
 
 ## Installation
-1. Install [ChromeDriver](https://sites.google.com/a/chromium.org/chromedriver/) (or an alternatie driver for your browser of choice):
-   * Run `brew install --cask chromedriver`
-   * Confirm installation: `chromedriver --version`
-   * Check location of ChromeDriver: `which chromedriver`
-   * Wherever the `driver` is initialized in the code, insert the ChromeDriver location
-2. Install Selenium: `pip install selenium`
-3. Install BeautifulSoup: `pip install beautifulsoup4`
+* Install [asdf](https://asdf-vm.com/guide/getting-started.html) + [poetry](https://python-poetry.org/docs/#installation)
+* Install dependencies
+    ```bash
+    # asdf
+    asdf plugin add python
+    asdf install python 3.11.3
+    asdf install poetry 1.4.2
+
+    # local .venv
+    poetry config virtualenvs.in-project true
+
+    # env
+    poetry install
+    poetry shell
+    playwright install chromium
+    ```
 
 ## Usage
-### To test `get_links.py`
-1. Uncomment the last line `get_links.py`
-2. Run `python get_links.py`
+### Links only
+* Copy `.env.example` to `.env` and fill in the values
+* Run `poetry run python get_links_pw.py`
+* `exports` directory will have a `urls_<timestamp>.json` file with all the links
 
-### To run the entire script:
+### To run the entire script (TODO)
 1. Set a number of pages you'd like to iterate through here
 2. Run `python apply.py`
 3. The script will open [glassdoor.com](https://www.glassdoor.com/index.htm), at which point you should log-in
@@ -27,13 +37,15 @@
 
 ## TODO
 * [Issues](https://github.com/pythoninthegrass/common_intern/issues)
+* `selenium` -> `playwright`
+  * ~~Refactor [`get_links.py`](get_links.py) with `playwright`~~
+  * Refactor [`apply.py`](#to-run-the-entire-script-todo) with `playwright`
 * Document fork changes
 * [Makefile](Makefile)
   * Automate [Installation](#installation) section
 * Docker
 * CI/CD
   * ghcr
-* `selenium` -> `playwright`
 
 ## License
 ### Fork

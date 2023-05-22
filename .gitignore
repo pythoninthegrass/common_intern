@@ -1,6 +1,8 @@
 # ETC
 **/django/composeexample/
 **/django/data/
+**/exports/
+**/playwright/.auth/
 *.sqlite
 !*.example
 *.pem
@@ -8,6 +10,7 @@
 **/raw/
 gitleaks_report*.json
 redis.conf
+urls_*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -327,3 +330,4 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+\nplaywright/.auth
