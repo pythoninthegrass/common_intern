@@ -1,8 +1,9 @@
 # ETC
 **/django/composeexample/
 **/django/data/
-**/exports/
-**/playwright/.auth/
+**/exports/*
+**/playwright/.auth/*
+!.gitkeep
 *.sqlite
 !*.example
 *.pem
