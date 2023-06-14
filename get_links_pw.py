@@ -2,12 +2,16 @@
 
 import asyncio
 import json
+# import pprint
+import re
+import requests
+import requests_cache
 import time
-# from bs4 import BeautifulSoup
+import typer
+from bs4 import BeautifulSoup
 from decouple import config, UndefinedValueError
 from pathlib import Path
 from playwright.async_api import async_playwright, TimeoutError
-import typer
 
 # env vars
 url = config(
@@ -19,6 +23,27 @@ username = config('USERNAME', default='spiritualized@gmail.com')
 password = config('PASSWORD', default='correcthorsebatterystaple')
 first_name = config('FIRST_NAME', default='Yosemite')
 last_name = config('LAST_NAME', default='Sam')
+
+# set timeout (e.g., *.click(timeout=10000)))
+sec = 10
+timeout = sec * 1000
+
+headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '3600',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+}
+
+# set up requests cache
+requests_cache.install_cache(
+    cache_name='glassdoor_cache',
+    backend='sqlite',
+    expire_after=86400
+)
+
+# pp = pprint.PrettyPrinter(indent=4)
 
 
 async def job_prefs():
@@ -83,6 +108,11 @@ class Driver:
                 viewport={"width":1280,"height":1400}
             )
         page = await context.new_page()
+
+        page.set_default_timeout(timeout)
+
+        await page.set_extra_http_headers(headers)
+
         await page.goto(self.url)
 
         # save state (cookies, local storage, etc.)
@@ -98,6 +128,8 @@ class Driver:
                 await self.aggregate_links(page)
             elif self.kwargs['action'] == 'get_urls':
                 await self.get_urls(page)
+            elif self.kwargs['action'] == 'filter_urls':
+                await self.filter_urls(page, keyword='Easy Apply')
             elif self.kwargs['action'] == 'export_urls':
                 await self.export_urls(page)
 
@@ -146,6 +178,11 @@ class Driver:
         # exit modal
         await page.locator("[data-test=\"modal-jobalert\"]").get_by_role("img").click()
 
+        # append querystring to url
+        # * minimum salary (100k+)
+        # * age of posting (7/14/30 days)
+        await page.goto(page.url + '?fromAge=30' + '?minSalary=100000')
+
 
     async def aggregate_links(self, page):
         """Aggregate all URL links"""
@@ -158,6 +195,10 @@ class Driver:
         links = await page.query_selector_all("a.jobLink")
         for link in links:
             all_links.add(await link.get_attribute("href"))
+
+        # TODO: remove jobs that are p2w/bypass age and salary filters (cf. Taulia, Braintrust, etc.)
+        # ! await page.get_by_role("link", name="Taulia Logo Taulia4.7 ★ Staff DevOps Engineer San Francisco, CA $145K - $200K (Employer est.) Easy Apply 30d+").click()
+        # ! await page.get_by_role("link", name="Braintrust Logo Braintrust4.6 ★ Frontend Developer (w/ DevOps experience) San Francisco, CA $45K - $65K (Employer est.) Easy Apply 24h").click()
 
         # get next page
         try:
@@ -185,10 +226,47 @@ class Driver:
         return all_urls
 
 
+    async def filter_urls(self, page, keyword=None):
+        """Filter URLs by keyword(s)"""
+
+        all_urls = await self.get_urls(page)
+
+        filtered_urls = set()
+
+        # keyword_regex = re.compile(
+        #     keyword,
+        #     re.IGNORECASE
+        # )
+
+        # bs4 method
+        for url in all_urls:
+            r = requests.get(url, headers=headers)
+            html = BeautifulSoup(r.content, 'html.parser')
+            if html.find_all(string=keyword, limit=1):
+                filtered_urls.add(url)
+            else:
+                job_id = re.search(r'jobListingId=(\d+)', url).group(1)
+                text = f"Skipping job #{job_id} ..."
+                target = url
+                print(f"\x1b]8;;{target}\a{text}\x1b]8;;\a")    # https://stackoverflow.com/a/53658415/15454191
+
+        # # playwright method
+        # for url in all_urls:
+        #     await page.goto(url)
+        #     await page.wait_for_load_state("load")      # load/domcontentloaded/networkidle
+        #     # if page.get_by_text(keyword_regex):
+        #     if page.get_by_role("button", name="Easy Apply", exact=True):
+        #         filtered_urls.add(url)
+        #     else:
+        #         print(f"Skipping {url}...")
+
+        return filtered_urls
+
+
     async def export_urls(self, page):
         """Export urls to a JSON file"""
 
-        all_urls = await self.get_urls(page)
+        all_urls = await self.filter_urls(page, keyword='Easy Apply')
 
         print(f"Exporting {len(all_urls)} URLs...")
 
