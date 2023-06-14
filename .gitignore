@@ -6,9 +6,11 @@
 !.gitkeep
 *.sqlite
 !*.example
+*.docx
 *.pem
 *.key
 **/raw/
+*alias
 gitleaks_report*.json
 redis.conf
 urls_*.json
