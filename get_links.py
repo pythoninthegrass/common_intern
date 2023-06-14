@@ -45,7 +45,6 @@ def login(driver):
 def go_to_listings(driver):
     """navigate to appropriate job listing page"""
 
-    # TODO: fix timeout exception (doesn't make it past login)
     # wait for the search bar to appear
     element = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, "//*[@id='scBar']"))

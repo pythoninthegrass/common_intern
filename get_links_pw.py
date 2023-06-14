@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-# import pprint
 import re
 import requests
 import requests_cache
@@ -42,8 +41,6 @@ requests_cache.install_cache(
     backend='sqlite',
     expire_after=86400
 )
-
-# pp = pprint.PrettyPrinter(indent=4)
 
 
 async def job_prefs():
@@ -196,10 +193,6 @@ class Driver:
         for link in links:
             all_links.add(await link.get_attribute("href"))
 
-        # TODO: remove jobs that are p2w/bypass age and salary filters (cf. Taulia, Braintrust, etc.)
-        # ! await page.get_by_role("link", name="Taulia Logo Taulia4.7 ★ Staff DevOps Engineer San Francisco, CA $145K - $200K (Employer est.) Easy Apply 30d+").click()
-        # ! await page.get_by_role("link", name="Braintrust Logo Braintrust4.6 ★ Frontend Developer (w/ DevOps experience) San Francisco, CA $45K - $65K (Employer est.) Easy Apply 24h").click()
-
         # get next page
         try:
             next_page = await page.query_selector("li.next")
@@ -233,12 +226,6 @@ class Driver:
 
         filtered_urls = set()
 
-        # keyword_regex = re.compile(
-        #     keyword,
-        #     re.IGNORECASE
-        # )
-
-        # bs4 method
         for url in all_urls:
             r = requests.get(url, headers=headers)
             html = BeautifulSoup(r.content, 'html.parser')
@@ -249,16 +236,6 @@ class Driver:
                 text = f"Skipping job #{job_id} ..."
                 target = url
                 print(f"\x1b]8;;{target}\a{text}\x1b]8;;\a")    # https://stackoverflow.com/a/53658415/15454191
-
-        # # playwright method
-        # for url in all_urls:
-        #     await page.goto(url)
-        #     await page.wait_for_load_state("load")      # load/domcontentloaded/networkidle
-        #     # if page.get_by_text(keyword_regex):
-        #     if page.get_by_role("button", name="Easy Apply", exact=True):
-        #         filtered_urls.add(url)
-        #     else:
-        #         print(f"Skipping {url}...")
 
         return filtered_urls
 
