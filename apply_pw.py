@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-# import asyncio
 import json
 import re
 import requests
@@ -11,12 +10,8 @@ from bs4 import BeautifulSoup
 from contextlib import suppress
 from decouple import config, UndefinedValueError
 from icecream import ic
-# import typer
 from pathlib import Path
 from playwright.sync_api import sync_playwright, TimeoutError
-# from playwright.async_api import async_playwright, TimeoutError
-
-# TODO: typer
 
 # env vars
 url = config(
@@ -46,7 +41,21 @@ grad_month = config('GRAD_MONTH')
 grad_year = config('GRAD_YEAR')
 university = config('UNIVERSITY')
 
-# TODO: parse resume for text file (`resume_textfile)
+# dictionary of form fields
+form_fields = {
+    "input-firstName": first_name,
+    "input-lastName": last_name,
+    "Phone number": phone,
+    "input-email": email,
+    "resumeUploadCard": str(Path(resume).resolve()),
+    "input-q_.*": zip_code,
+    "Country": country,
+    "United States Citizen": "",
+    "I don't wish to answer": "",
+    "Don't recommend me for any jobs at other employers.": "",
+    "Continue": "",
+    "Review your application": "",
+}
 
 # get latest json export
 latest_export = max(Path('exports').glob('urls_*.json'))
@@ -157,6 +166,8 @@ class Driver:
         if self.kwargs:
             if self.kwargs['action'] == 'login':
                 self.login(page)
+            elif self.kwargs['action'] == 'scrape_page':
+                self.scrape_page(page, self.url)
             elif self.kwargs['action'] == 'easy_apply':
                 self.easy_apply(page, self.url)
             elif self.kwargs['action'] == 'greenhouse':
@@ -168,9 +179,9 @@ class Driver:
         page.pause()
 
         # close browser
-        page.close()
-        context.close()
-        browser.close()
+        # page.close()
+        # context.close()
+        # browser.close()
 
 
     def login(self, page):
@@ -187,11 +198,29 @@ class Driver:
                 break
             return True
 
+    # # OG
+    # await new_page.get_by_test_id("input-firstName").fill(first_name)
+    # await new_page.get_by_test_id("input-lastName").fill(last_name)
+    # await new_page.get_by_label("Phone number", exact=True).fill(phone)
+    # await new_page.get_by_test_id("input-email").fill(email)
+    # await new_page.get_by_role("button", name="Continue").click(timeout=100)
+    # await new_page.get_by_test_id("resumeUploadCard").click(timeout=5000)
+    # await new_page.get_by_test_id("resumeUploadCard-button").set_input_files(resume)
+    # await new_page.get_by_test_id(re.compile(r"input-q_.*")).fill(zip_code)
+    # await new_page.get_by_role("combobox", name="Country").select_option(country)
+    # await new_page.locator("label").filter(has_text="United States Citizen").locator("span").first.click(timeout=5000)
+    # await new_page.locator("label").filter(has_text="I don't wish to answer").locator("span").first.click(timeout=5000)
+    # await new_page.locator("label").filter(has_text="Don't recommend me for any jobs at other employers.").locator("span").first.click(timeout=5000)
+    # await new_page.get_by_role("button", name="Continue").click(timeout=5000)
+    # await new_page.get_by_role("button", name="Review your application").click(timeout=5000)
+    # await page.get_by_role("button", name="Submit application").click()
 
-    def easy_apply(self, page, url):
-        """
-        Apply to a job listing on Glassdoor directly from the job listing page
-        """
+    def scrape_page(self, page, url):
+        """Scrape a job listing page for application form fields"""
+
+        # if playwright is not logged in, log in
+        if not Path("playwright/.auth/state.json").is_file():
+            self.login(page)
 
         # navigate to the application page
         page.goto(url)
@@ -200,97 +229,131 @@ class Driver:
             page.get_by_role("button", name="Easy Apply").click()
         new_page = new_page_info.value
         new_page.wait_for_load_state()
+        new_page.set_default_timeout(100)
 
         # assign new page url to variable
         # ez_url = new_page.url
 
         # get page html
-        # html = new_page.content()
+        return new_page.content()
 
-        # # parse html
-        # soup = BeautifulSoup(html, 'html.parser')
-        # print(soup.prettify())
-        # element = soup.find_all("resumeUploadCard-button")
 
-        # elems = new_page.locator("resumeUploadCard-button").evaluate_all()
+    def _input_first_name(self, page, field, value):
+        page.get_by_test_id(field).fill(value)
 
-        # dictionary of form fields
-        form_fields = {
-            "input-firstName": first_name,
-            "input-lastName": last_name,
-            "Phone number": phone,
-            "input-email": email,
-            "resumeUploadCard": str(Path(resume).resolve()),
-            "input-q_.*": zip_code,
-            "Country": country,
-            "United States Citizen": "",
-            "I don't wish to answer": "",
-            "Don't recommend me for any jobs at other employers.": "",
-            "Continue": "",
-            "Review your application": "",
-        }
 
-        # override timeout
-        new_page.set_default_timeout(100)
+    def _input_last_name(self, page, field, value):
+        page.get_by_test_id(field).fill(value)
 
-        # iterate through form fields
-        for field, value in form_fields.items():
-            with suppress(TimeoutError):
-                # match statement
-                match field:
-                    case "input-firstName":
-                        new_page.get_by_test_id(field).fill(value)
-                    case "input-lastName":
-                        new_page.get_by_test_id(field).fill(value)
-                    case "Phone number":
-                        new_page.get_by_label(field, exact=True).fill(value)
-                    case "input-email":
-                        new_page.get_by_test_id(field).fill(value)
-                    case "resumeUploadCard":
-                        # TODO: QA
-                        with new_page.expect_file_chooser() as file_chooser_info:
-                            new_page.get_by_test_id(field).click()
-                        file_chooser = file_chooser_info.value
-                        file_chooser.set_files(value)
-                        new_page.get_by_role("button", name="Continue").click()
-                    case "input-q_.*":
-                        new_page.get_by_test_id(field).fill(value)
-                    case "Country":
-                        new_page.get_by_role("combobox", name=field).select_option(value)
-                    case "United States Citizen":
-                        # new_page.get_by_text(re.compile(r"United States Citizen|US"))
-                        new_page.locator("label").filter(has_text=r"United States Citizen|US").locator("span").first.click(timeout=5000)
-                        # new_page.get_by_test_id(re.compile(r"input-q_.*")).get_by_text("YES").click()
-                    case "I don't wish to answer":
-                        new_page.get_by_text(re.compile(r"I don't wish to answer")).click()
-                    case "Don't recommend me for any jobs at other employers.":
-                        new_page.get_by_text(re.compile(r"Don't recommend me for any jobs at other employers.")).click()
-                    case "Continue":
-                        new_page.get_by_role("button", name=field).click(timeout=5000)
-                    case "Review your application":
-                        new_page.get_by_role("button", name=field).click(timeout=5000)
-                        # page.get_by_role("button", name="Submit application").click()
-                    case _:
-                        # ! review application
-                        new_page.pause()
-                        # pass
 
-                # # OG
-                # await new_page.get_by_test_id("input-firstName").fill(first_name)
-                # await new_page.get_by_test_id("input-lastName").fill(last_name)
-                # await new_page.get_by_label("Phone number", exact=True).fill(phone)
-                # await new_page.get_by_test_id("input-email").fill(email)
-                # await new_page.get_by_role("button", name="Continue").click(timeout=100)
-                # await new_page.get_by_test_id("resumeUploadCard").click(timeout=5000)
-                # await new_page.get_by_test_id("resumeUploadCard-button").set_input_files(resume)
-                # await new_page.get_by_test_id(re.compile(r"input-q_.*")).fill(zip_code)
-                # await new_page.get_by_role("combobox", name="Country").select_option(country)
-                # await new_page.locator("label").filter(has_text="United States Citizen").locator("span").first.click(timeout=5000)
-                # await new_page.locator("label").filter(has_text="I don't wish to answer").locator("span").first.click(timeout=5000)
-                # await new_page.locator("label").filter(has_text="Don't recommend me for any jobs at other employers.").locator("span").first.click(timeout=5000)
-                # await new_page.get_by_role("button", name="Continue").click(timeout=5000)
-                # await new_page.get_by_role("button", name="Review your application").click(timeout=5000)
-                # await page.get_by_role("button", name="Submit application").click()
+    def _input_phone_number(self, page, field, value):
+        page.get_by_label(field, exact=True).fill(value)
+
+
+    def _input_email(self, page, field, value):
+        page.get_by_test_id(field).fill(value)
+
+
+    def _upload_resume(self, page, field, value):
+        with page.expect_file_chooser() as file_chooser_info:
+            page.get_by_test_id(field).click()
+        file_chooser = file_chooser_info.value
+        file_chooser.set_files(value)
+        page.get_by_role("button", name="Continue").click()
+
+
+    def _input_zip_code(self, page, field, value):
+        page.get_by_test_id(field).fill(value)
+
+
+    def _select_country(self, page, field, value):
+        page.get_by_role("combobox", name=field).select_option(value)
+
+
+    def _select_us_citizen(self, page, field, value):
+        page.locator("label").filter(has_text=r"United States Citizen|US").locator("span").first.click(timeout=5000)
+
+
+    def _select_no_answer(self, page, field, value):
+        page.get_by_text(re.compile(r"I don't wish to answer")).click()
+
+
+    def _select_no_recommend(self, page, field, value):
+        page.get_by_text(re.compile(r"Don't recommend me for any jobs at other employers.")).click()
+
+
+    def _click_continue(self, page, field, value):
+        page.get_by_role("button", name=field).click(timeout=5000)
+
+
+    def _click_review(self, page, field, value):
+        page.get_by_role("button", name=field).click(timeout=5000)
+
+
+    def _submit_application(self, page, field, value):
+        page.get_by_role("button", name=field).click()
+
+
+    def easy_apply(self, page, url):
+        """Apply to a job listing on Glassdoor directly from the job listing page"""
+
+        # scrape page for available fields
+        html = self.scrape_page(page, url)
+        soup = BeautifulSoup(html, 'html.parser')
+        # ic(soup.prettify())
+
+        # save html for debugging
+        if not Path("playwright/soup.html").is_file():
+            with open('playwright/soup.html', 'w') as f:
+                f.write(soup.prettify())
+
+        try:
+            # TODO: check for url first
+            # * https://m5.apply.indeed.com/beta/indeedapply/form/contact-info
+            # * https://m5.apply.indeed.com/beta/indeedapply/form/resume
+            # * https://m5.apply.indeed.com/beta/indeedapply/form/questions/1
+
+            input_first_name = soup.find("input", {"id": "input-firstName"})
+            input_last_name = soup.find("input", {"id": "input-lastName"})
+            input_phone_number = soup.find("input", {"id": "input-phone"})
+            input_email = soup.find("input", {"id": "input-email"})
+            resume_upload_card = soup.find("div", {"data-testid": "resumeUploadCard"})
+
+            # TODO: QA (probably need a while loop)
+            # contact info
+            if input_first_name:
+                self._input_first_name(page, "input-firstName", first_name)
+
+            if input_last_name:
+                self._input_last_name(page, "input-lastName", last_name)
+
+            if input_phone_number:
+                self._input_phone_number(page, "input-phone", phone)
+
+            if input_email:
+                self._input_email(page, "input-email", email)
+
+            # resume
+            if resume_upload_card:
+                self._upload_resume(page, "resumeUploadCard", resume)
+
+            # ! pause for debugging
+            page.pause()
+
+            # questions
+            self._input_zip_code(page, "input-q_.*", zip_code)
+            self._select_country(page, "Country", country)
+            self._select_us_citizen(page, "United States Citizen", "")
+            self._select_no_answer(page, "I don't wish to answer", "")
+            self._select_no_recommend(page, "Don't recommend me for any jobs at other employers.", "")
+
+            # continue
+            self._click_continue(page, "Continue", "")
+        except TimeoutError:
+            pass
+
+        # review
+        self._click_review(page, "Review your application", "")
 
 
     def greenhouse(self, page, url):
@@ -317,14 +380,6 @@ class Driver:
         # add linkedin
         page.frame_locator("iframe[title=\"Greenhouse Job Board\"]").get_by_label("LinkedIn Profile").fill(linkedin)
 
-        # TODO: maybeee
-        # * add graduation year
-        # * add university
-        # * add degree
-        # * add major
-        # * add website
-        # * add work authorization
-
         # ! pause for debugging
         page.pause()
 
@@ -338,29 +393,9 @@ class Driver:
 
         pass
 
-        # # navigate to the application page
-        # driver.find_element_by_class_name('template-btn-submit').click()
-
-        # # basic info
-
-        # # socials
-
-        # # add university
-
-        # # add how you found out about the company
-
-        # # submit resume last so it doesn't auto-fill the rest of the form
-        # # since Lever has a clickable file-upload, it's easier to pass it into the webpage
-        # driver.find_element_by_name('resume').send_keys(Path("resume.pdf").resolve())
-        # driver.find_element_by_class_name('template-btn-submit').click()
-
 
 def main(url, *args, **kwargs):
     position_title, location = job_prefs()
-
-    # async with async_playwright() as playwright:
-    #     driver = Driver(playwright, url, *args, **kwargs)
-    #     await driver.run()
 
     with sync_playwright() as playwright:
         driver = Driver(playwright, url, *args, **kwargs)
@@ -371,12 +406,7 @@ if __name__ == "__main__":
     url = "https://www.glassdoor.com/job-listing/devops-engineer-avive-JV_IC1147334_KO0,15_KE16,21.htm?jl=1008587573785&pos=108&ao=1136043&s=58&guid=0000018897b30beba949200790012d9c&src=GD_JOB_AD&t=SR&vt=w&uido=EFD96E67CACCEAC9A7770DF34F9A3B58&ea=1&cs=1_4c522004&cb=1686172273881&jobListingId=1008587573785&jrtk=3-0-1h2br630km6pt801-1h2br63192ci5001-8eefae5135a7da85-&ctt=1686175543650"
 
     try:
-        # asyncio.run(main(url, action='easy_apply'))
         main(url, action='easy_apply')
     except TimeoutError as e:
         print(e)
         pass
-
-    # TODO: uncomment to apply to all jobs
-    # for url in urls:
-    #     asyncio.run(main(url, action='easy_apply'))
