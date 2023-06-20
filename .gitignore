@@ -3,6 +3,7 @@
 **/django/data/
 **/exports/*
 **/playwright/.auth/*
+**/playwright/*
 !.gitkeep
 *.sqlite
 !*.example
