@@ -161,24 +161,27 @@ class Driver:
 
         # TODO: debug `waiting for locator("[data-test=\"search-bar-keyword-input\"]")`
         # ! can't run headless as it times out / never appears
-        # fill out position and location fields
-        await page.locator("[data-test=\"search-bar-keyword-input\"]").click()
-        await page.locator("[data-test=\"search-bar-keyword-input\"]").fill(position_title)
-        await page.locator("[data-test=\"search-bar-location-input\"]").click()
-        await page.locator("[data-test=\"search-bar-location-input\"]").click(click_count=3)
-        await page.locator("[data-test=\"search-bar-location-input\"]").fill(location)
-        await page.locator("[data-test=\"search-bar-submit\"]").click()
+        try:
+            # fill out position and location fields
+            await page.locator("[data-test=\"search-bar-keyword-input\"]").click()
+            await page.locator("[data-test=\"search-bar-keyword-input\"]").fill(position_title)
+            await page.locator("[data-test=\"search-bar-location-input\"]").click()
+            await page.locator("[data-test=\"search-bar-location-input\"]").click(click_count=3)
+            await page.locator("[data-test=\"search-bar-location-input\"]").fill(location)
+            await page.locator("[data-test=\"search-bar-submit\"]").click()
 
-        # show all jobs
-        await page.get_by_role("link", name="See All Jobs").click()
+            # show all jobs
+            await page.get_by_role("link", name="See All Jobs").click()
 
-        # exit modal
-        await page.locator("[data-test=\"modal-jobalert\"]").get_by_role("img").click()
+            # exit modal
+            await page.locator("[data-test=\"modal-jobalert\"]").get_by_role("img").click()
 
-        # append querystring to url
-        # * minimum salary (100k+)
-        # * age of posting (7/14/30 days)
-        await page.goto(page.url + '?fromAge=30' + '?minSalary=100000')
+            # append querystring to url
+            # * minimum salary (100k+)
+            # * age of posting (7/14/30 days)
+            await page.goto(page.url + '?fromAge=30' + '?minSalary=100000')
+        except TimeoutError:
+            pass
 
 
     async def aggregate_links(self, page):
@@ -219,9 +222,24 @@ class Driver:
         return all_urls
 
 
-    # TODO: list of exclusions (e.g., java, jenkins, azure, gcp, powershell, windows,etc.)
-    async def filter_urls(self, page, keyword=None):
+    # TODO: list of exclusions
+    # ! skip pages with 'Applied MMM DD, YYYY' text
+    async def filter_urls(self, page, keyword=None, exclude=None):
         """Filter URLs by keyword(s)"""
+
+        stop_words = [
+            '.net',
+            'chef',
+            'hadoop',
+            'java',
+            'powershell',
+            'puppet',
+            'saltstack',
+            'teamcity',
+        ]
+
+        if exclude:
+            stop_words.append(exclude)
 
         all_urls = await self.get_urls(page)
 
@@ -230,13 +248,19 @@ class Driver:
         for url in all_urls:
             r = requests.get(url, headers=headers)
             html = BeautifulSoup(r.content, 'html.parser')
-            if html.find_all(string=keyword, limit=1):
-                filtered_urls.add(url)
-            else:
-                job_id = re.search(r'jobListingId=(\d+)', url).group(1)
-                text = f"Skipping job #{job_id} ..."
-                target = url
-                print(f"\x1b]8;;{target}\a{text}\x1b]8;;\a")    # https://stackoverflow.com/a/53658415/15454191
+            keyword_match = html.find_all(string=keyword, limit=1)
+            if keyword_match != []:
+                body = html.currentTag.text
+                # skip pages with stop words
+                if any(word in body.lower() for word in stop_words):
+                    job_id = re.search(r'jobListingId=(\d+)', url).group(1)
+                    text = f"Skipping job #{job_id} ..."
+                    target = url
+                    # https://stackoverflow.com/a/53658415/15454191
+                    print(f"\x1b]8;;{target}\a{text}\x1b]8;;\a")
+                    continue
+                else:
+                    filtered_urls.add(url)
 
         return filtered_urls
 
