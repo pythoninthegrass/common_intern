@@ -49,8 +49,8 @@ async def job_prefs():
     global position_title, location
 
     try:
-        position_title = config('POSITION_TITLE')
-        location = config('LOCATION')
+        position_title = config('POSITION_TITLE', default='Python Developer')
+        location = config('LOCATION', default='Remote, US')
     except UndefinedValueError:
         position_title = typer.prompt("Enter position title")
         location = typer.prompt("Enter location")
@@ -176,10 +176,23 @@ class Driver:
             # exit modal
             await page.locator("[data-test=\"modal-jobalert\"]").get_by_role("img").click()
 
+            # TODO: QA (148 jobs when run manually 7/6/23)
+            # !https://www.glassdoor.com/Job/remote-python-developer-jobs-SRCH_IL.0,6_IS11047_KO7,23.htm?jobType=fulltime&fromAge=14&minSalary=100000&maxSalary=320000&applicationType=1&locName=Remote&includeNoSalaryJobs=false
             # append querystring to url
-            # * minimum salary (100k+)
             # * age of posting (7/14/30 days)
-            await page.goto(page.url + '?fromAge=30' + '?minSalary=100000')
+            # * minimum salary (100k+)
+            # * maximum salary (320k+)
+            # * application type (easy apply)
+            # * include no salary jobs (false)
+            # * location (remote)
+            await page.goto(page.url
+                            + '?fromAge=14'
+                            + '?minSalary=100000'
+                            + '&maxSalary=320000'
+                            + '&applicationType=1'
+                            + '&includeNoSalaryJobs=false'
+                            + '&locName=Remote'
+            )
         except TimeoutError:
             pass
 
@@ -222,7 +235,7 @@ class Driver:
         return all_urls
 
 
-    # TODO: list of exclusions
+    # TODO: debug empty return
     # ! skip pages with 'Applied MMM DD, YYYY' text
     async def filter_urls(self, page, keyword=None, exclude=None):
         """Filter URLs by keyword(s)"""
@@ -268,7 +281,14 @@ class Driver:
     async def export_urls(self, page):
         """Export urls to a JSON file"""
 
-        all_urls = await self.filter_urls(page, keyword='Easy Apply')
+        all_urls = await self.get_urls(page)
+
+        # filter URLs by keyword
+        # all_urls = await self.filter_urls(page, keyword='Easy Apply')
+
+        if len(all_urls) == 0:
+            print("No URLs to export.")
+            return
 
         print(f"Exporting {len(all_urls)} URLs...")
 
