@@ -23,9 +23,9 @@ password = config('PASSWORD', default='correcthorsebatterystaple')
 first_name = config('FIRST_NAME', default='Yosemite')
 last_name = config('LAST_NAME', default='Sam')
 
-# set timeout (e.g., *.click(timeout=10000)))
-sec = 10
-timeout = sec * 1000
+# # set timeout (e.g., *.click(timeout=10000)))
+# sec = 30
+# timeout = sec * 1000
 
 headers = {
     'Access-Control-Allow-Origin': '*',
@@ -106,7 +106,7 @@ class Driver:
             )
         page = await context.new_page()
 
-        page.set_default_timeout(timeout)
+        # page.set_default_timeout(timeout)
 
         await page.set_extra_http_headers(headers)
 
@@ -163,18 +163,10 @@ class Driver:
         # ! can't run headless as it times out / never appears
         try:
             # fill out position and location fields
-            await page.locator("[data-test=\"search-bar-keyword-input\"]").click()
-            await page.locator("[data-test=\"search-bar-keyword-input\"]").fill(position_title)
-            await page.locator("[data-test=\"search-bar-location-input\"]").click()
-            await page.locator("[data-test=\"search-bar-location-input\"]").click(click_count=3)
-            await page.locator("[data-test=\"search-bar-location-input\"]").fill(location)
-            await page.locator("[data-test=\"search-bar-submit\"]").click()
-
-            # show all jobs
-            await page.get_by_role("link", name="See All Jobs").click()
-
-            # exit modal
-            await page.locator("[data-test=\"modal-jobalert\"]").get_by_role("img").click()
+            await page.get_by_placeholder("Find your perfect job").fill(position_title)
+            await page.get_by_label("Search location").press("Meta+a")
+            await page.get_by_label("Search location").fill("remote us")
+            await page.get_by_role("option", name=location).locator("div").click()
 
             # TODO: QA (148 jobs when run manually 7/6/23)
             # !https://www.glassdoor.com/Job/remote-python-developer-jobs-SRCH_IL.0,6_IS11047_KO7,23.htm?jobType=fulltime&fromAge=14&minSalary=100000&maxSalary=320000&applicationType=1&locName=Remote&includeNoSalaryJobs=false
@@ -245,6 +237,7 @@ class Driver:
             'chef',
             'hadoop',
             'java',
+            'junior',
             'powershell',
             'puppet',
             'saltstack',
